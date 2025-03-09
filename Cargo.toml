@@ -1,5 +1,5 @@
 [package]
-name = "imperat"
+name = "impereat"
 version = "0.1.0"
 description = "Library to enable dependency injection and management of step-by-step flows."
 keywords = ["runner", "dependency", "injection", "imperative", "procedure"]

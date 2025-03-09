@@ -1,4 +1,4 @@
-use imperat::{BuilderError, prelude::*};
+use impereat::{BuilderError, prelude::*};
 use std::sync::{
     LazyLock,
     atomic::{AtomicUsize, Ordering},
