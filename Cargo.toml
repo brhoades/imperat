@@ -1,10 +1,18 @@
 [package]
 name = "imperat"
 version = "0.1.0"
+description = "Library to enable dependency injection and management of step-by-step flows."
+keywords = ["runner", "dependency", "injection", "imperative", "procedure"]
+categories = ["development-tools", "error-handling"]
+authors = ["Billy Rhoades <me@brod.es>"]
+repository = "https://github.com/brhoades/imperat"
+license = "MIT"
 edition = "2024"
 
 [dependencies]
 async-trait = "0.1.87"
-tokio = { version = "1.44.0", features = ["rt", "macros"] }
-typemap_rev = "0.3.0"
 variadics_please = "1.1.0"
+
+[dev-dependencies]
+tokio = { version = "1.44.0", features = ["rt", "macros"] }
+

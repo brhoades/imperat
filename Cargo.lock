@@ -61,7 +61,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "tokio",
- "typemap_rev",
  "variadics_please",
 ]
 
@@ -157,12 +156,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "typemap_rev"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74b08b0c1257381af16a5c3605254d529d3e7e109f3c62befc5d168968192998"
 
 [[package]]
 name = "unicode-ident"
