@@ -12,8 +12,10 @@ pub enum Error {
     DepResolution(String),
     #[error("failed to add a dependency of type '{0:?}' as it was already present")]
     AddDep(TypeId),
-    #[error("a step failed to execute: {0}")]
-    Step(Box<dyn std::error::Error>),
+    #[error("step '{0}' failed to execute: {1}")]
+    Step(String, Box<dyn std::error::Error>),
+    #[error("step '{0}' returned a fatal outcome without error")]
+    UnknownStep(String),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -38,6 +40,7 @@ struct Step<O> {
 pub struct ImperativeStepBuilder<O> {
     tm: TypeMap,
     steps: Vec<Step<O>>,
+    // errors accumulated at build time
     errors: Vec<Error>,
 }
 
@@ -51,7 +54,7 @@ impl<O> Default for ImperativeStepBuilder<O> {
     }
 }
 
-impl<O: 'static> ImperativeStepBuilder<O> {
+impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
     // XXX: allow parallel steps
     /// Add a step with the provided name. The passed function arguments must
     /// take only types which implement `FromTypeMap`. Have all arguments wrapped
@@ -97,17 +100,106 @@ impl<O: 'static> ImperativeStepBuilder<O> {
     /// If any errors occurred during building or while executing,
     /// all executions tops and the error is returned.
     pub async fn execute(mut self) -> Result<Vec<O>> {
-        let mut res = Vec::with_capacity(self.steps.len());
         if let Some(e) = self.errors.pop() {
             return Err(e);
         }
+        let mut outputs = Vec::with_capacity(self.steps.len());
 
         for step in self.steps {
-            res.push(step.fut.await);
-            if let Some(e) = self.errors.pop() {
-                return Err(e);
+            let r = step.fut.await;
+            if r.success() {
+                outputs.push(r);
+            } else if let Some(e) = r.error() {
+                return Err(Error::Step(step.name, e));
+            } else {
+                return Err(Error::UnknownStep(step.name));
             }
         }
-        Ok(res)
+        Ok(outputs)
     }
 }
+
+/// All step functions must return a result with a result that
+/// dictates step outcome.
+///
+/// A step whose outcome is not a success halts execution.
+/// Not all failures have a matching error.
+pub trait IntoStepOutcome {
+    /// Returns the error from the step execution, if any.
+    fn error(self) -> Option<Box<dyn std::error::Error>>;
+
+    /// Return whether this step succeeded.
+    fn success(&self) -> bool;
+}
+
+// Nightly:
+// an unfailable step, compiler error occurs if a failure is attempted
+// pub type Infallible = !;
+
+impl IntoStepOutcome for std::io::Error {
+    fn error(self) -> Option<Box<dyn std::error::Error>> {
+        Some(Box::new(self))
+    }
+
+    fn success(&self) -> bool {
+        false
+    }
+}
+
+impl IntoStepOutcome for Box<dyn std::error::Error> {
+    fn error(self) -> Option<Box<dyn std::error::Error>> {
+        Some(self)
+    }
+
+    fn success(&self) -> bool {
+        false
+    }
+}
+
+impl IntoStepOutcome for bool {
+    fn error(self) -> Option<Box<dyn std::error::Error>> {
+        None
+    }
+
+    fn success(&self) -> bool {
+        *self
+    }
+}
+
+impl<T, E: IntoStepOutcome + Into<Box<dyn std::error::Error>>> IntoStepOutcome
+    for std::result::Result<T, E>
+{
+    fn error(self) -> Option<Box<dyn std::error::Error>> {
+        if self.is_err() {
+            self.err().map(Into::into)
+        } else {
+            None
+        }
+    }
+
+    fn success(&self) -> bool {
+        self.is_ok()
+    }
+}
+
+// Enable blanket implementations for primitives which never fail.
+macro_rules! impl_into_step_outcome {
+    ($($typ:ty)*) => {
+        $(
+          impl IntoStepOutcome for $typ {
+              fn error(self) -> Option<Box<dyn std::error::Error>> {
+                  None
+              }
+
+              fn success(&self) -> bool {
+                  true
+              }
+          }
+        )*
+    };
+}
+
+impl_into_step_outcome!(
+    () usize isize char &str String u8 i8 i16 u16 i32 u32
+    i64 u64 i128 u128 f32 f64
+);

@@ -1,4 +1,9 @@
 use imperat::{BuilderError, prelude::*};
+use std::sync::{
+    LazyLock,
+    atomic::{AtomicUsize, Ordering},
+};
+use thiserror::Error;
 
 struct Database;
 
@@ -40,4 +45,70 @@ async fn test_missing_deps() {
         .await
         .expect_err("should have failed");
     assert!(matches!(e, BuilderError::DepResolution(_)), "{e:?}");
+}
+
+#[derive(Error, Debug, PartialEq, Eq)]
+enum Error {
+    #[error("uhoh")]
+    TestOne,
+}
+
+impl IntoStepOutcome for Error {
+    fn error(self) -> Option<Box<dyn std::error::Error>> {
+        Some(Box::new(self))
+    }
+
+    fn success(&self) -> bool {
+        false
+    }
+}
+
+// a step with an error should yield an error on execute
+#[tokio::test]
+async fn fail_step_yields_error() {
+    async fn fail_step() -> std::result::Result<(), Error> {
+        Err(Error::TestOne)
+    }
+
+    let name = "fatal step".to_string();
+    let e = new_imperative_builder()
+        .add_step(&name, fail_step)
+        .execute()
+        .await
+        .expect_err("should have failed");
+
+    match e {
+        BuilderError::Step(msg, e) => {
+            assert!(
+                e.downcast::<Error>().ok() == Some(Box::new(Error::TestOne)),
+                "error msg: {msg:?}",
+            )
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+// a step with an error should not execute other steps
+#[tokio::test]
+async fn fail_step_stops_execution() {
+    static CNT: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+    new_imperative_builder()
+        .add_step("one", async move || {
+            CNT.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        })
+        .add_step("two", async || Err(Error::TestOne))
+        .add_step("three", async || {
+            CNT.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        })
+        .add_step("four", async || {
+            CNT.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        })
+        .execute()
+        .await
+        .expect_err("should have failed");
+
+    assert_eq!(CNT.load(Ordering::Relaxed), 1);
 }
