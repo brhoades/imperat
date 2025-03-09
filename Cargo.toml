@@ -10,6 +10,7 @@ license = "MIT"
 edition = "2024"
 
 [dependencies]
+anyhow = { version = "1.0.97", optional = true }
 async-trait = "0.1.87"
 thiserror = "2.0.12"
 variadics_please = "1.1.0"
@@ -17,3 +18,5 @@ variadics_please = "1.1.0"
 [dev-dependencies]
 tokio = { version = "1.44.0", features = ["rt", "macros"] }
 
+[features]
+anyhow = ["dep:anyhow"]

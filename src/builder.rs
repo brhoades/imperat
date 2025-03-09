@@ -166,6 +166,17 @@ impl IntoStepOutcome for bool {
     }
 }
 
+#[cfg(feature = "anyhow")]
+impl IntoStepOutcome for anyhow::Error {
+    fn error(self) -> Option<Box<dyn std::error::Error>> {
+        Some(self.into())
+    }
+
+    fn success(&self) -> bool {
+        false
+    }
+}
+
 impl<T, E: IntoStepOutcome + Into<Box<dyn std::error::Error>>> IntoStepOutcome
     for std::result::Result<T, E>
 {

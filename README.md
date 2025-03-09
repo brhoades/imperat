@@ -5,3 +5,6 @@ Impereat enables step-by-step execution of configured functions.
 
 ## Examples
 TODO, once API stabilizes
+
+## Features
+`anyhow`: enable built-in `IntoStepOutcome` support for `anyhow::Error`.
