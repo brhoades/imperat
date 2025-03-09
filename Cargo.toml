@@ -1,5 +1,5 @@
 [package]
-name = "imperative-runner"
+name = "imperat"
 version = "0.1.0"
 edition = "2024"
 
