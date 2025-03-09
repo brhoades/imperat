@@ -6,23 +6,31 @@ use std::{
 };
 use variadics_please::all_tuples;
 
-// https://nickbryan.co.uk/software/using-a-type-map-for-dependency-injection-in-rust/
+/// Nearly 1-to-1 with this blog:
+/// https://nickbryan.co.uk/software/using-a-type-map-for-dependency-injection-in-rust/
+/// A TypeMap uniquely stores an arbitrary value by its type. No types
+/// can store more than one value.
 #[derive(Default)]
 pub struct TypeMap {
     bindings: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl TypeMap {
+    /// Creates a new, empty type map.
     pub fn new() -> Self {
-        TypeMap {
-            bindings: HashMap::default(),
-        }
+        TypeMap::default()
     }
 
-    pub fn bind<T: Any>(&mut self, val: T) {
-        self.bindings.insert(val.type_id(), Box::new(val));
+    /// Binds the given value to its type in the type map. If an
+    /// existing value for this type exists, it's returned. An existing value
+    /// with an incorrect type is returned as none.
+    pub fn bind<T: Any>(&mut self, val: T) -> Option<Box<T>> {
+        self.bindings
+            .insert(val.type_id(), Box::new(val))
+            .and_then(|v| v.downcast().ok())
     }
 
+    /// Returns the value in this type map for this unique type.
     pub fn get<T: Any>(&self) -> Option<&T> {
         self.bindings
             .get(&TypeId::of::<T>())
@@ -30,52 +38,18 @@ impl TypeMap {
     }
 }
 
+/// A type which can be retrieved from a type map. Its type signature
+/// uniquely stores the type in the map.
 pub trait FromTypeMap: Any + Sized {
     fn retrieve_from_map(tm: &TypeMap) -> Option<Self>;
 }
 
-#[async_trait::async_trait]
-pub trait Callable<Args: FromTypeMap> {
-    type Out;
-
-    async fn call(self, args: Args) -> Self::Out;
-}
-
-// fans out an implementation for 0 to 16-tuple of generics of Callable
-macro_rules! impl_callable_tuples {
-    ($($param: ident),*) => {
-        #[allow(
-            non_snake_case,
-            reason = "Certain variable names are provided by the caller, not by us."
-        )]
-        #[allow(
-            unused_variables,
-            reason = "Zero-length tuples won't use some of the parameters."
-        )]
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is in a macro, and as such, the below lints may not always apply."
-        )]
-        #[async_trait::async_trait]
-        impl<Func, Fut, O, $($param: FromTypeMap + Send + Sync),*> Callable<($($param,)*)> for Func
-        where Func: Fn($($param,)*) -> Fut + Send + Sync,
-              Fut: Future<Output = O> + Send,
-
-        {
-            type Out = O;
-
-            #[inline]
-            async fn call(self, ($($param,)*): ($($param,)*)) -> Self::Out {
-                (self)($($param,)*).await
-            }
-
-        }
-    }
-}
-
-all_tuples!(impl_callable_tuples, 0, 16, F);
-
-// fans out an implementation for 0 to 16-tuple of generics of FromTypeMap
+// Fans out an implementation for 0 to 16-tuple of generics of FromTypeMap. Allows
+// the crate to treat a tuple of arguments as individiual arguments to look up
+// in a type map. Without this, we'd look up all unique argument as a tuple on
+// a functionc all when resolving dependencies.
+//
+// In effect, this is a big part of where the magic happens.
 macro_rules! impl_fromtypemap_tuples {
     ($($param: ident),*) => {
         #[allow(
@@ -104,6 +78,8 @@ macro_rules! impl_fromtypemap_tuples {
 
 all_tuples!(impl_fromtypemap_tuples, 0, 16, F);
 
+/// A dependency which can be automatically resolved
+/// at compile time.
 pub struct Dep<T: ?Sized>(Arc<T>);
 
 impl<T> Dep<T> {
@@ -140,6 +116,7 @@ mod tests {
     #[derive(Debug)]
     struct Config(i32, u32);
 
+    // retrieval should get back what it puts in
     #[test]
     fn test_retrieval() {
         let mut tm = TypeMap::new();
@@ -150,7 +127,16 @@ mod tests {
         tm.get::<Dep<Database>>().unwrap();
         let cfg = tm.get::<Dep<Config>>().unwrap();
 
-        assert_eq!(cfg.get().0, 2);
-        assert_eq!(cfg.get().1, 3);
+        // since we're in this module, we have to navigate the
+        // private internals of Dep
+        assert_eq!(cfg.0.0, 2);
+        assert_eq!(cfg.0.1, 3);
+    }
+
+    // unset values should be absent
+    #[test]
+    fn test_missing() {
+        let tm = TypeMap::new();
+        assert!(tm.get::<Dep<i32>>().is_none());
     }
 }
