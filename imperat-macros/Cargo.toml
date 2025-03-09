@@ -1,0 +1,20 @@
+[package]
+name = "imperat-macros"
+version = "0.1.0"
+description = "Dependency of imperat, providing step-by-step imperative function execution with dependency injection."
+edition = "2024"
+authors = ["Billy Rhoades <me@brod.es>"]
+repository = "https://github.com/brhoades/imperat"
+license = "MIT"
+
+[dependencies]
+proc-macro2 = "^1.0.80"
+quote = "^1.0.30"
+syn = {version = "^1.0", features = ["full"]}
+variadics_please = { workspace = true }
+
+[dev-dependencies]
+imperat = { workspace = true } # integration tests
+
+[lib]
+proc-macro = true

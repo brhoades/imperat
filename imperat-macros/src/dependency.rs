@@ -8,8 +8,8 @@ pub fn dependency_impl(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics ::impereat::FromTypeMap for #name #type_generics #where_clause {
-            fn retrieve_from_map(tm: &::impereat::TypeMap) -> Option<Self> {
+        impl #impl_generics ::imperat::FromTypeMap for #name #type_generics #where_clause {
+            fn retrieve_from_map(tm: &::imperat::TypeMap) -> Option<Self> {
                 tm.get::<Self>().cloned()
             }
         }

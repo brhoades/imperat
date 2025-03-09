@@ -3,12 +3,12 @@
 mod builder;
 mod callable;
 
-pub use ::common::{Dep, FromTypeMap, TypeMap};
 pub use builder::{
     Error as BuilderError, ImperativeStepBuilder, IntoStepOutcome, new as new_builder,
 };
 pub use callable::Callable;
-pub use macros::Dependency;
+pub use imperat_common::{Dep, FromTypeMap, TypeMap};
+pub use imperat_macros::Dependency;
 
 pub mod prelude {
     pub use super::{

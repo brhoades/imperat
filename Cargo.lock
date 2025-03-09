@@ -56,28 +56,60 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "common"
-version = "0.1.0"
-dependencies = [
- "variadics_please",
-]
-
-[[package]]
 name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
-name = "impereat"
+name = "imperat"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "common",
- "macros",
+ "imperat-common 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "imperat-macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "tokio",
+ "variadics_please",
+]
+
+[[package]]
+name = "imperat-common"
+version = "0.1.0"
+dependencies = [
+ "variadics_please",
+]
+
+[[package]]
+name = "imperat-common"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "559fa06070637bf01da3594335bd85d4394cd799bdc5bcab8fbc1317231b2450"
+dependencies = [
+ "variadics_please",
+]
+
+[[package]]
+name = "imperat-macros"
+version = "0.1.0"
+dependencies = [
+ "imperat",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "variadics_please",
+]
+
+[[package]]
+name = "imperat-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c0153250731ff831c2f9f06f4c1f7db42ef9e26acfb1382a92930c2ed7d0074"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
  "variadics_please",
 ]
 
@@ -86,18 +118,6 @@ name = "libc"
 version = "0.2.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
-
-[[package]]
-name = "macros"
-version = "0.1.0"
-dependencies = [
- "common",
- "impereat",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "variadics_please",
-]
 
 [[package]]
 name = "memchr"

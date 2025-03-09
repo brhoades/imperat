@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 
-members = [ "common", "impereat", "macros"]
-default-members = ["impereat", "macros"]
+members = [ "imperat", "imperat-common", "imperat-macros"]
+default-members = [ "imperat", "imperat-common", "imperat-macros"]
 
 [workspace.dependencies]
-common = { path = "common" }
-impereat = { path = "impereat" }
-macros = { path = "macros" }
+imperat-common = { path = "imperat-common" }
+imperat = { path = "imperat" }
+imperat-macros = { path = "imperat-macros" }
 variadics_please = "^1.1"

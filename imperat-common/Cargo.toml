@@ -1,0 +1,11 @@
+[package]
+name = "imperat-common"
+version = "0.1.0"
+description = "Dependency of imperat, providing step-by-step imperative function execution with dependency injection."
+edition = "2024"
+authors = ["Billy Rhoades <me@brod.es>"]
+repository = "https://github.com/brhoades/imperat"
+license = "MIT"
+
+[dependencies]
+variadics_please = { workspace = true }

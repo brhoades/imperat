@@ -1,7 +1,7 @@
 //! Compilation tests for cases which did not always work.
 #![allow(dead_code)]
 
-use macros::Dependency;
+use imperat_macros::Dependency;
 
 #[derive(Clone, Debug, Dependency)]
 struct Bare;
@@ -31,7 +31,7 @@ struct Result<T: Clone + 'static, E: Clone + 'static>(std::result::Result<T, E>)
 // a typemap bind and call should rt
 #[test]
 fn test_typemap_round_trips() {
-    let mut tm = common::TypeMap::new();
+    let mut tm = imperat::TypeMap::new();
 
     tm.bind(Bare);
     tm.bind(FiveTuple(1, 2, 3, 4., "hello".to_string()));
