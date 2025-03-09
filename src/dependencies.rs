@@ -78,13 +78,20 @@ macro_rules! impl_fromtypemap_tuples {
 
 all_tuples!(impl_fromtypemap_tuples, 0, 16, F);
 
-/// A dependency which can be automatically resolved
-/// at compile time.
+/// A dependency which can be automatically resolved at runtime
+/// by its unique type.
 pub struct Dep<T: ?Sized>(Arc<T>);
 
 impl<T> Dep<T> {
+    /// Create a new dependency for injection.
     pub fn new(val: T) -> Dep<T> {
         Dep(Arc::new(val))
+    }
+
+    /// Yields the inner dependency, destroying the outer wrapper.
+    #[must_use]
+    pub fn inner(self) -> Arc<T> {
+        self.0
     }
 }
 
