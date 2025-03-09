@@ -2,7 +2,7 @@ mod builder;
 mod callable;
 mod dependencies;
 
-pub use builder::{ImperativeStepBuilder, new as new_builder};
+pub use builder::{Error as BuilderError, ImperativeStepBuilder, new as new_builder};
 pub use callable::Callable;
 pub use dependencies::Dep;
 

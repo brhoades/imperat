@@ -1,8 +1,22 @@
+use std::{any::TypeId, pin::Pin};
+use thiserror::Error;
+
 use crate::{
     callable::Callable,
     dependencies::{Dep, FromTypeMap, TypeMap},
 };
-use std::{any::TypeId, pin::Pin};
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("failed to resolve at least one dependency in step '{0}'")]
+    DepResolution(String),
+    #[error("failed to add a dependency of type '{0:?}' as it was already present")]
+    AddDep(TypeId),
+    #[error("a step failed to execute: {0}")]
+    Step(Box<dyn std::error::Error>),
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 /// The primary entrypoint to building out an imperative runner. Initialize
 /// with default and then chain calls to each other.
@@ -23,7 +37,7 @@ struct Step<O> {
 pub struct ImperativeStepBuilder<O> {
     tm: TypeMap,
     steps: Vec<Step<O>>,
-    errors: Vec<String>, // TODO: this error
+    errors: Vec<Error>,
 }
 
 impl<O> Default for ImperativeStepBuilder<O> {
@@ -51,9 +65,7 @@ impl<O: 'static> ImperativeStepBuilder<O> {
     ) -> Self {
         let Some(args) = A::retrieve_from_map(&self.tm) else {
             eprintln!("will not run step '{name}' as at least one dependency was absent");
-            self.errors.push(format!(
-                "step '{name}' did not run as a dependency was absent",
-            ));
+            self.errors.push(Error::DepResolution(name.to_string()));
             return self;
         };
         self.steps.push(Step {
@@ -70,10 +82,7 @@ impl<O: 'static> ImperativeStepBuilder<O> {
     /// The type of a dependency is used to inject the dependency into steps.
     pub fn add_dep<T: 'static>(mut self, dep: T) -> Self {
         if self.tm.get::<Dep<T>>().is_some() {
-            self.errors.push(format!(
-                "a dependency of type '{:?}' could not be added as it was already present",
-                TypeId::of::<T>(),
-            ));
+            self.errors.push(Error::AddDep(TypeId::of::<T>()));
             return self;
         }
         self.tm.bind(Dep::new(dep));
@@ -82,19 +91,20 @@ impl<O: 'static> ImperativeStepBuilder<O> {
     }
 
     /// Execute this runner. All configured steps will be ran.
-    /// If an error occurs, it will be output immediately.
-    pub async fn execute(self) -> Vec<O> {
+    /// If any errors occurred during building or while executing,
+    /// all executions tops and the error is returned.
+    pub async fn execute(mut self) -> Result<Vec<O>> {
         let mut res = Vec::with_capacity(self.steps.len());
-        if !self.errors.is_empty() {
-            panic!("{:?}", self.errors);
+        if let Some(e) = self.errors.pop() {
+            return Err(e);
         }
 
         for step in self.steps {
             res.push(step.fut.await);
-            if !self.errors.is_empty() {
-                panic!("{:?}", self.errors);
+            if let Some(e) = self.errors.pop() {
+                return Err(e);
             }
         }
-        res
+        Ok(res)
     }
 }

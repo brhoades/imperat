@@ -1,4 +1,4 @@
-use imperat::prelude::*;
+use imperat::{BuilderError, prelude::*};
 
 struct Database;
 
@@ -20,13 +20,13 @@ async fn test_ordered_exec() {
         .add_step("example step", example_step)
         .add_step("example step with a dep", example_step_dep)
         .execute()
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(vec![1, 2], res);
 }
 
-// missing deps should cause a failure and not run
-#[should_panic]
+// missing deps should error out.
 #[tokio::test]
 async fn test_missing_deps() {
     async fn missing_dep_step(_db: Dep<Database>) -> usize {
@@ -34,8 +34,10 @@ async fn test_missing_deps() {
         0
     }
 
-    new_imperative_builder()
+    let e = new_imperative_builder()
         .add_step("example step", missing_dep_step)
         .execute()
-        .await;
+        .await
+        .expect_err("should have failed");
+    assert!(matches!(e, BuilderError::DepResolution(_)), "{e:?}");
 }

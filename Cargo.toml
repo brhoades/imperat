@@ -11,6 +11,7 @@ edition = "2024"
 
 [dependencies]
 async-trait = "0.1.87"
+thiserror = "2.0.12"
 variadics_please = "1.1.0"
 
 [dev-dependencies]
