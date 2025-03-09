@@ -73,7 +73,7 @@ enum Error {
 }
 
 impl IntoStepOutcome for Error {
-    fn error(self) -> Option<Box<dyn std::error::Error>> {
+    fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         Some(Box::new(self))
     }
 

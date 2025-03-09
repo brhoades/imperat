@@ -47,7 +47,7 @@ pub trait FromTypeMap: Any + Sized {
 // Fans out an implementation for 0 to 16-tuple of generics of FromTypeMap. Allows
 // the crate to treat a tuple of arguments as individiual arguments to look up
 // in a type map. Without this, we'd look up all unique argument as a tuple on
-// a functionc all when resolving dependencies.
+// a function call when resolving dependencies.
 //
 // In effect, this is a big part of where the magic happens.
 macro_rules! impl_fromtypemap_tuples {

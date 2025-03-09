@@ -10,7 +10,7 @@ pub enum Error {
     #[error("failed to add a dependency of type '{0:?}' as it was already present")]
     AddDep(TypeId),
     #[error("step '{0}' failed to execute: {1}")]
-    Step(String, Box<dyn std::error::Error>),
+    Step(String, Box<dyn std::error::Error + Send + Sync>),
     #[error("step '{0}' returned a fatal outcome without error")]
     UnknownStep(String),
 }
@@ -133,7 +133,7 @@ impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
 /// Not all failures have a matching error.
 pub trait IntoStepOutcome {
     /// Returns the error from the step execution, if any.
-    fn error(self) -> Option<Box<dyn std::error::Error>>;
+    fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>>;
 
     /// Return whether this step succeeded.
     fn success(&self) -> bool;
@@ -144,7 +144,7 @@ pub trait IntoStepOutcome {
 // pub type Infallible = !;
 
 impl IntoStepOutcome for std::io::Error {
-    fn error(self) -> Option<Box<dyn std::error::Error>> {
+    fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         Some(Box::new(self))
     }
 
@@ -153,8 +153,8 @@ impl IntoStepOutcome for std::io::Error {
     }
 }
 
-impl IntoStepOutcome for Box<dyn std::error::Error> {
-    fn error(self) -> Option<Box<dyn std::error::Error>> {
+impl IntoStepOutcome for Box<dyn std::error::Error + Send + Sync> {
+    fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         Some(self)
     }
 
@@ -164,7 +164,7 @@ impl IntoStepOutcome for Box<dyn std::error::Error> {
 }
 
 impl IntoStepOutcome for bool {
-    fn error(self) -> Option<Box<dyn std::error::Error>> {
+    fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         None
     }
 
@@ -175,7 +175,7 @@ impl IntoStepOutcome for bool {
 
 #[cfg(feature = "anyhow")]
 impl IntoStepOutcome for anyhow::Error {
-    fn error(self) -> Option<Box<dyn std::error::Error>> {
+    fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         Some(self.into())
     }
 
@@ -184,10 +184,10 @@ impl IntoStepOutcome for anyhow::Error {
     }
 }
 
-impl<T, E: IntoStepOutcome + Into<Box<dyn std::error::Error>>> IntoStepOutcome
+impl<T, E: IntoStepOutcome + Into<Box<dyn std::error::Error + Send + Sync>>> IntoStepOutcome
     for std::result::Result<T, E>
 {
-    fn error(self) -> Option<Box<dyn std::error::Error>> {
+    fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         if self.is_err() {
             self.err().map(Into::into)
         } else {
@@ -205,7 +205,7 @@ macro_rules! impl_into_step_outcome {
     ($($typ:ty)*) => {
         $(
           impl IntoStepOutcome for $typ {
-              fn error(self) -> Option<Box<dyn std::error::Error>> {
+              fn error(self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
                   None
               }
 
