@@ -34,10 +34,11 @@ pub trait FromTypeMap: Any + Sized {
     fn retrieve_from_map(tm: &TypeMap) -> Option<Self>;
 }
 
+#[async_trait::async_trait]
 pub trait Callable<Args: FromTypeMap> {
     type Out;
 
-    fn call(&self, args: Args) -> Self::Out;
+    async fn call(self, args: Args) -> Self::Out;
 }
 
 // fans out an implementation for 0 to 16-tuple of generics of Callable
@@ -55,14 +56,17 @@ macro_rules! impl_callable_tuples {
             clippy::allow_attributes,
             reason = "This is in a macro, and as such, the below lints may not always apply."
         )]
-        impl<Func, O, $($param: FromTypeMap),*> Callable<($($param,)*)> for Func
-            where Func: Fn($($param,)*) -> O
+        #[async_trait::async_trait]
+        impl<Func, Fut, O, $($param: FromTypeMap + Send + Sync),*> Callable<($($param,)*)> for Func
+        where Func: Fn($($param,)*) -> Fut + Send + Sync,
+              Fut: Future<Output = O> + Send,
+
         {
             type Out = O;
 
             #[inline]
-            fn call(&self, ($($param,)*): ($($param,)*)) -> Self::Out {
-                (self)($($param,)*)
+            async fn call(self, ($($param,)*): ($($param,)*)) -> Self::Out {
+                (self)($($param,)*).await
             }
 
         }
@@ -105,10 +109,6 @@ pub struct Dep<T: ?Sized>(Arc<T>);
 impl<T> Dep<T> {
     pub fn new(val: T) -> Dep<T> {
         Dep(Arc::new(val))
-    }
-
-    fn get(&self) -> &T {
-        &self.0
     }
 }
 
