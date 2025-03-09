@@ -1,9 +1,13 @@
 use imperat::{BuilderError, prelude::*};
-use std::sync::{
-    LazyLock,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    sync::{
+        LazyLock,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::{Duration, Instant},
 };
 use thiserror::Error;
+use tokio::time::sleep;
 
 struct Database;
 #[derive(Clone, Dependency)]
@@ -130,4 +134,62 @@ async fn fail_step_stops_execution() {
         .expect_err("should have failed");
 
     assert_eq!(CNT.load(Ordering::Relaxed), 1);
+}
+
+// A parallel group should run all steps in parallel.
+#[tokio::test]
+async fn test_parallel_steps_run_in_parallel() {
+    let b = new_imperative_builder().new_group(|mut gb| {
+        for i in 0..50 {
+            gb = gb.add_step(&format!("step #{i}"), async || {
+                sleep(Duration::from_millis(10)).await;
+            });
+        }
+        gb.parallel()
+    });
+
+    let st = Instant::now();
+    let _ = b.execute().await;
+    let total = st.elapsed();
+
+    // even though each one waits 10ms, it shouldn't take long.
+    // overhead for the single threaded test executor / noisy parallel tests.
+    assert!(
+        total > Duration::from_millis(10),
+        "unexpectedly fast test: {total:?}",
+    );
+    assert!(
+        total < Duration::from_millis(25),
+        "total elapsed: {total:?}",
+    );
+}
+
+// A group that tolerates failure should ignore an individual failure.
+#[tokio::test]
+async fn test_tolerate_failure() {
+    let res = new_imperative_builder()
+        .new_group(|mut gb| {
+            for i in 0..50 {
+                if i % 2 == 0 {
+                    gb = gb.add_step(&format!("step #{i}"), async || true);
+                } else {
+                    gb = gb.add_step(
+                        &format!("step #{i}"),
+                        async || false, // IntoStepOutcome treats false as failure
+                    );
+                }
+            }
+            gb
+        })
+        .execute()
+        .await
+        .unwrap();
+
+    for (i, r) in res.into_iter().enumerate() {
+        if i % 2 == 0 {
+            assert!(r, "{i} was not true");
+        } else {
+            assert!(!r, "{i} was not false");
+        }
+    }
 }

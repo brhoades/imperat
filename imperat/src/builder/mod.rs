@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{FromTypeMap, TypeMap, prelude::*};
 pub use outcome::IntoStepOutcome;
-pub use step::Group;
+pub use step::{Group, GroupBuilder};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -68,7 +68,6 @@ impl<O> Default for ImperativeStepBuilder<O> {
 }
 
 impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
-    // XXX: allow parallel steps
     /// Add a step with the provided name. To the default top-level group.
     /// See `Group::add_step`.
     #[must_use]
@@ -100,6 +99,17 @@ impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
         tm.bind(dep);
         drop(tm);
 
+        self
+    }
+
+    /// Pass a closure to define a group. The closure operates on a `step::GroupBuilder`.
+    /// Return the group builder when done and the group will be added.
+    #[must_use]
+    pub fn new_group(mut self, new_fn: impl Fn(GroupBuilder<O>) -> GroupBuilder<O>) -> Self {
+        let gb = new_fn(GroupBuilder::new(self.tm.clone(), self.errors.clone()));
+        // I've decided to not include a finalize() fn on GroupBuilder to avoid
+        // confusion when in the closure.
+        self.groups.push(gb.0);
         self
     }
 
