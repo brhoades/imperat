@@ -1,0 +1,24 @@
+[package]
+name = "impereat"
+version = "0.1.0"
+description = "Library to enable dependency injection and management of step-by-step flows."
+keywords = ["runner", "dependency", "injection", "imperative", "procedure"]
+categories = ["development-tools", "error-handling"]
+authors = ["Billy Rhoades <me@brod.es>"]
+repository = "https://github.com/brhoades/imperat"
+license = "MIT"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.97", optional = true }
+async-trait = "0.1.87"
+common = { workspace = true }
+macros = { workspace = true }
+thiserror = "2.0.12"
+variadics_please = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1.44.0", features = ["rt", "macros"] }
+
+[features]
+anyhow = ["dep:anyhow"]

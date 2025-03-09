@@ -10,7 +10,7 @@ use variadics_please::all_tuples;
 /// <https://nickbryan.co.uk/software/using-a-type-map-for-dependency-injection-in-rust/>
 /// A `TypeMap` uniquely stores an arbitrary value by its type. No types
 /// can store more than one value.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TypeMap {
     bindings: HashMap<TypeId, Box<dyn Any>>,
 }

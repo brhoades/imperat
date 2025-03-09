@@ -6,6 +6,8 @@ use std::sync::{
 use thiserror::Error;
 
 struct Database;
+#[derive(Clone, Dependency)]
+struct DeriveDataSource;
 
 // ordered exec should run steps in order
 #[tokio::test]
@@ -21,7 +23,7 @@ async fn test_ordered_exec() {
     }
 
     let res = new_imperative_builder()
-        .add_dep(Database)
+        .add_dep(Dep::new(Database))
         .add_step("example step", example_step)
         .add_step("example step with a dep", example_step_dep)
         .execute()
@@ -29,6 +31,23 @@ async fn test_ordered_exec() {
         .unwrap();
 
     assert_eq!(vec![1, 2], res);
+}
+
+// a derive Dependency struct should resolve fine
+#[tokio::test]
+async fn test_derive_dependency() {
+    let b = new_imperative_builder().add_dep(DeriveDataSource).add_step(
+        "step 1",
+        async |_: DeriveDataSource| {
+            println!("foo");
+            1
+        },
+    );
+    println!("{b:?}");
+
+    let res = b.execute().await.unwrap();
+
+    assert_eq!(vec![1], res);
 }
 
 // missing deps should error out.

@@ -1,10 +1,7 @@
 use std::{any::TypeId, pin::Pin};
 use thiserror::Error;
 
-use crate::{
-    callable::Callable,
-    dependencies::{Dep, FromTypeMap, TypeMap},
-};
+use crate::{FromTypeMap, TypeMap, prelude::*};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -42,6 +39,16 @@ pub struct ImperativeStepBuilder<O> {
     steps: Vec<Step<O>>,
     // errors accumulated at build time
     errors: Vec<Error>,
+}
+
+#[allow(clippy::missing_fields_in_debug)]
+impl<O> std::fmt::Debug for ImperativeStepBuilder<O> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ImperativeStepBuilder")
+            .field("tm", &self.tm)
+            .field("errors", &self.errors)
+            .finish()
+    }
 }
 
 impl<O> Default for ImperativeStepBuilder<O> {
@@ -87,11 +94,11 @@ impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
     /// The type of a dependency is used to inject the dependency into steps.
     #[must_use]
     pub fn add_dep<T: 'static>(mut self, dep: T) -> Self {
-        if self.tm.get::<Dep<T>>().is_some() {
+        if self.tm.get::<T>().is_some() {
             self.errors.push(Error::AddDep(TypeId::of::<T>()));
             return self;
         }
-        self.tm.bind(Dep::new(dep));
+        self.tm.bind(dep);
 
         self
     }

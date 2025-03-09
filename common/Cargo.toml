@@ -1,0 +1,8 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2024"
+description = "Common typing glue between workspace crates"
+
+[dependencies]
+variadics_please = { workspace = true }

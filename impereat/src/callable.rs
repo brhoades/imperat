@@ -1,4 +1,4 @@
-use crate::dependencies::FromTypeMap;
+use crate::FromTypeMap;
 use variadics_please::all_tuples;
 
 /// Something that is callable with a specific interface.
