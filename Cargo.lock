@@ -67,8 +67,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "imperat-common 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "imperat-macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "imperat-common",
+ "imperat-macros",
  "thiserror",
  "tokio",
  "variadics_please",
@@ -82,31 +82,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "imperat-common"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "559fa06070637bf01da3594335bd85d4394cd799bdc5bcab8fbc1317231b2450"
-dependencies = [
- "variadics_please",
-]
-
-[[package]]
 name = "imperat-macros"
 version = "0.1.0"
 dependencies = [
  "imperat",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "variadics_please",
-]
-
-[[package]]
-name = "imperat-macros"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c0153250731ff831c2f9f06f4c1f7db42ef9e26acfb1382a92930c2ed7d0074"
-dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",

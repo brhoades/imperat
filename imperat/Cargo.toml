@@ -12,8 +12,8 @@ edition = "2024"
 [dependencies]
 anyhow = { version = "1.0.97", optional = true }
 async-trait = "0.1.87"
-imperat-common = "0.1.0"
-imperat-macros = "0.1.0"
+imperat-common = { workspace = true }
+imperat-macros = { workspace = true }
 thiserror = "2.0.12"
 variadics_please = { workspace = true }
 
