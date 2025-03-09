@@ -20,6 +20,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 /// The primary entrypoint to building out an imperative runner. Initialize
 /// with default and then chain calls to each other.
+#[must_use]
 pub fn new<O>() -> ImperativeStepBuilder<O> {
     ImperativeStepBuilder::<O>::default()
 }
@@ -43,9 +44,9 @@ pub struct ImperativeStepBuilder<O> {
 impl<O> Default for ImperativeStepBuilder<O> {
     fn default() -> Self {
         ImperativeStepBuilder::<O> {
-            tm: Default::default(),
-            steps: Default::default(),
-            errors: Default::default(),
+            tm: TypeMap::default(),
+            steps: Vec::default(),
+            errors: Vec::default(),
         }
     }
 }
@@ -58,6 +59,7 @@ impl<O: 'static> ImperativeStepBuilder<O> {
     ///
     /// If a dependency is not found in builder, an error will be stored. It is
     /// later returned on run.
+    #[must_use]
     pub fn add_step<C: Callable<A, Out = O> + 'static, A: FromTypeMap>(
         mut self,
         name: &str,
@@ -80,6 +82,7 @@ impl<O: 'static> ImperativeStepBuilder<O> {
     ///
     /// All added dependencies must have a unique type or an error will occur.
     /// The type of a dependency is used to inject the dependency into steps.
+    #[must_use]
     pub fn add_dep<T: 'static>(mut self, dep: T) -> Self {
         if self.tm.get::<Dep<T>>().is_some() {
             self.errors.push(Error::AddDep(TypeId::of::<T>()));

@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
 mod builder;
 mod callable;
 mod dependencies;

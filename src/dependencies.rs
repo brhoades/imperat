@@ -7,8 +7,8 @@ use std::{
 use variadics_please::all_tuples;
 
 /// Nearly 1-to-1 with this blog:
-/// https://nickbryan.co.uk/software/using-a-type-map-for-dependency-injection-in-rust/
-/// A TypeMap uniquely stores an arbitrary value by its type. No types
+/// <https://nickbryan.co.uk/software/using-a-type-map-for-dependency-injection-in-rust/>
+/// A `TypeMap` uniquely stores an arbitrary value by its type. No types
 /// can store more than one value.
 #[derive(Default)]
 pub struct TypeMap {
