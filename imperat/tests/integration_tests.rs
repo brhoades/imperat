@@ -34,7 +34,9 @@ async fn test_ordered_exec() {
         .await
         .unwrap();
 
-    assert_eq!(vec![1, 2], res);
+    let mut vs: Vec<_> = res.values().collect();
+    vs.sort();
+    assert_eq!(vec![&1, &2], vs);
 }
 
 // a derive Dependency struct should resolve fine
@@ -51,7 +53,9 @@ async fn test_derive_dependency() {
 
     let res = b.execute().await.unwrap();
 
-    assert_eq!(vec![1], res);
+    let mut vs: Vec<_> = res.values().collect();
+    vs.sort();
+    assert_eq!(vec![&1], vs);
 }
 
 // missing deps should error out.
@@ -171,10 +175,10 @@ async fn test_tolerate_failure() {
         .new_group(|mut gb| {
             for i in 0..50 {
                 if i % 2 == 0 {
-                    gb = gb.add_step(&format!("step #{i}"), async || true);
+                    gb = gb.add_step(&format!("{i}"), async || true);
                 } else {
                     gb = gb.add_step(
-                        &format!("step #{i}"),
+                        &format!("{i}"),
                         async || false, // IntoStepOutcome treats false as failure
                     );
                 }
@@ -185,8 +189,9 @@ async fn test_tolerate_failure() {
         .await
         .unwrap();
 
-    for (i, r) in res.into_iter().enumerate() {
-        if i % 2 == 0 {
+    for (i, (name, r)) in res.into_iter().enumerate() {
+        let name = name.parse::<i32>().unwrap();
+        if name % 2 == 0 {
             assert!(r, "{i} was not true");
         } else {
             assert!(!r, "{i} was not false");

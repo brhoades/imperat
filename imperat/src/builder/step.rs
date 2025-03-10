@@ -2,6 +2,7 @@ use super::{Error, IntoStepOutcome, Result};
 use crate::{FromTypeMap, TypeMap, prelude::*};
 use futures::{StreamExt, stream::FuturesOrdered};
 use std::{
+    collections::HashMap,
     pin::Pin,
     sync::{Arc, Mutex},
 };
@@ -116,9 +117,11 @@ impl<O: IntoStepOutcome + 'static> Group<O> {
         &self.opts.callbacks
     }
 
-    /// Execute this group, returning all of the results.
-    pub(super) async fn execute(self) -> Result<Vec<O>> {
-        let mut outputs = Vec::with_capacity(self.steps.len());
+    /// Execute this group, returning all of the results. The results
+    /// are grouped by the step name. The last defined with a duplicate
+    /// step name will appear in the results.
+    pub(super) async fn execute(self) -> Result<HashMap<String, O>> {
+        let mut outputs = HashMap::with_capacity(self.steps.len());
 
         let exec_step = async |s, cbs: &[CallbackKind<O>]| {
             for cb in cbs {
@@ -143,7 +146,7 @@ impl<O: IntoStepOutcome + 'static> Group<O> {
             return Ok(self
                 .steps
                 .into_iter()
-                .map(|s| exec_step(s, &cbs))
+                .map(|s| async { (s.name.clone(), exec_step(s, &cbs).await) })
                 .collect::<FuturesOrdered<_>>()
                 .collect()
                 .await);
@@ -153,12 +156,12 @@ impl<O: IntoStepOutcome + 'static> Group<O> {
             let name = step.name.clone();
             let r = exec_step(step, &cbs).await;
             if self.opts.tolerate_failure {
-                outputs.push(r);
+                outputs.insert(name, r);
                 continue;
             }
 
             if r.success() {
-                outputs.push(r);
+                outputs.insert(name, r);
             } else if let Some(e) = r.error() {
                 return Err(Error::Step(name, e));
             } else {

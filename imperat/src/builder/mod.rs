@@ -3,6 +3,7 @@ mod step;
 
 use std::{
     any::TypeId,
+    collections::HashMap,
     sync::{Arc, Mutex},
 };
 use thiserror::Error;
@@ -133,13 +134,17 @@ impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
         self
     }
 
-    /// Execute this runner. All configured steps will be ran.
+    /// Execute this runner. All configured groups and steps will be ran.
     /// If any errors occurred during building or while executing,
-    /// all executions tops and the error is returned.
+    /// all execution stops (unless otherwise configured) and the error is returned.
+    ///
+    /// The returned `HashMap` contains all results by their step name. In the case of
+    /// duplicate names, results for the last step by order definition order will
+    /// win.
     ///
     /// # Panics
     /// If the errors mutex is poisoned.
-    pub async fn execute(mut self) -> Result<Vec<O>> {
+    pub async fn execute(mut self) -> Result<HashMap<String, O>> {
         if let Some(e) = self.errors.lock().expect("errors mutex poisoned").pop() {
             return Err(e);
         }
@@ -159,9 +164,9 @@ impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
         groups.extend(self.groups);
         for g in groups {
             let res = g.execute().await?;
-            outputs.extend(res);
+            outputs.push(res);
         }
 
-        Ok(outputs)
+        Ok(outputs.into_iter().flatten().collect())
     }
 }
