@@ -8,16 +8,54 @@ use std::{
 
 /// A resolved step which is ready to be ran.
 pub struct Step<O> {
-    #[allow(dead_code)]
     name: String,
-    // XXX: allow an arbitrary return type which can imply fallibility if impl'd
     fut: Pin<Box<dyn Future<Output = O>>>,
 }
 
-#[derive(Default)]
-struct GroupOptions {
+impl<O> Step<O> {
+    /// Returns the name of this step.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+/// Options which apply to a group and its steps.
+struct GroupOptions<O> {
     parallel: bool,
     tolerate_failure: bool,
+    callbacks: Vec<CallbackKind<O>>,
+}
+
+impl<O> Default for GroupOptions<O> {
+    fn default() -> Self {
+        Self {
+            parallel: false,
+            tolerate_failure: false,
+            callbacks: vec![],
+        }
+    }
+}
+
+pub type BeforeCallbackFn<O> = dyn Fn(&Step<O>);
+pub type AfterCallbackFn<O> = dyn Fn(&str, &O);
+
+/// A variant of a callback on a group.
+pub(super) enum CallbackKind<O> {
+    /// Called before the step executes on the step.
+    BeforeStep(Arc<BeforeCallbackFn<O>>),
+    /// Called after the step executes. Is passed the step's
+    /// name and result.
+    AfterStep(Arc<AfterCallbackFn<O>>),
+}
+
+// derive fails for some reason
+impl<O> Clone for CallbackKind<O> {
+    fn clone(&self) -> Self {
+        match self {
+            CallbackKind::BeforeStep(cb) => CallbackKind::BeforeStep(cb.clone()),
+            CallbackKind::AfterStep(cb) => CallbackKind::AfterStep(cb.clone()),
+        }
+    }
 }
 
 /// A logical group of steps. Every builder contains an implicit starting group
@@ -27,7 +65,7 @@ pub struct Group<O> {
     steps: Vec<Step<O>>,
     // errors accumulated at build time
     errors: Arc<Mutex<Vec<Error>>>,
-    opts: GroupOptions,
+    opts: GroupOptions<O>,
 }
 
 impl<O> Group<O> {
@@ -68,24 +106,52 @@ impl<O: IntoStepOutcome + 'static> Group<O> {
         });
     }
 
+    /// Internal API to add a callback to this group.
+    pub(super) fn add_callback(&mut self, cb: CallbackKind<O>) {
+        self.opts.callbacks.push(cb);
+    }
+
+    /// Internal API to read callbacks from this group.
+    pub(super) fn callbacks(&self) -> &[CallbackKind<O>] {
+        &self.opts.callbacks
+    }
+
     /// Execute this group, returning all of the results.
     pub(super) async fn execute(self) -> Result<Vec<O>> {
         let mut outputs = Vec::with_capacity(self.steps.len());
 
+        let exec_step = async |s, cbs: &[CallbackKind<O>]| {
+            for cb in cbs {
+                if let CallbackKind::BeforeStep(cb) = cb {
+                    cb(&s);
+                }
+            }
+            let Step { name, fut } = s;
+            let res = fut.await;
+            for cb in cbs {
+                if let CallbackKind::AfterStep(cb) = cb {
+                    cb(&name, &res);
+                };
+            }
+            res
+        };
+
+        let cbs = self.callbacks().to_vec();
         // implies tolerate_failure for now. We'd need something special
         // here to allow a single failure to interrupt all futures.
         if self.opts.parallel {
             return Ok(self
                 .steps
                 .into_iter()
-                .map(|s| s.fut)
+                .map(|s| exec_step(s, &cbs))
                 .collect::<FuturesOrdered<_>>()
                 .collect()
                 .await);
         }
 
         for step in self.steps {
-            let r = step.fut.await;
+            let name = step.name.clone();
+            let r = exec_step(step, &cbs).await;
             if self.opts.tolerate_failure {
                 outputs.push(r);
                 continue;
@@ -94,9 +160,9 @@ impl<O: IntoStepOutcome + 'static> Group<O> {
             if r.success() {
                 outputs.push(r);
             } else if let Some(e) = r.error() {
-                return Err(Error::Step(step.name, e));
+                return Err(Error::Step(name, e));
             } else {
-                return Err(Error::UnknownStep(step.name));
+                return Err(Error::UnknownStep(name));
             }
         }
 
@@ -133,6 +199,24 @@ impl<O: IntoStepOutcome + 'static> GroupBuilder<O> {
     /// Don't exit on the first failure.
     pub fn tolerate_failure(mut self) -> Self {
         self.0.opts.tolerate_failure = true;
+        self
+    }
+
+    /// Pass a callback to run for this group before every step.
+    pub fn before_step(mut self, cb: impl Fn(&Step<O>) + 'static) -> Self {
+        self.0
+            .opts
+            .callbacks
+            .push(CallbackKind::BeforeStep(Arc::new(cb)));
+        self
+    }
+
+    /// Pass a callback to run for this group after every step.
+    pub fn after_step(mut self, cb: impl Fn(&str, &O) + 'static) -> Self {
+        self.0
+            .opts
+            .callbacks
+            .push(CallbackKind::AfterStep(Arc::new(cb)));
         self
     }
 }

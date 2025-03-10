@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{FromTypeMap, TypeMap, prelude::*};
 pub use outcome::IntoStepOutcome;
-pub use step::{Group, GroupBuilder};
+pub use step::{Group, GroupBuilder, Step};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -113,15 +113,45 @@ impl<O: IntoStepOutcome + 'static> ImperativeStepBuilder<O> {
         self
     }
 
+    /// Adds a before step callback to top-level steps and all groups.
+    /// Callbacks added by this method run after group-specific callbacks,
+    /// though this is subject to change.
+    #[must_use]
+    pub fn before_step(mut self, cb: impl Fn(&Step<O>) + 'static) -> Self {
+        self.default
+            .add_callback(step::CallbackKind::BeforeStep(Arc::new(cb)));
+        self
+    }
+
+    /// Adds an after step callback to top-level steps and all groups.
+    /// Callbacks added by this method run after group-specific callbacks,
+    /// though this is subject to change.
+    #[must_use]
+    pub fn after_step(mut self, cb: impl Fn(&str, &O) + 'static) -> Self {
+        self.default
+            .add_callback(step::CallbackKind::AfterStep(Arc::new(cb)));
+        self
+    }
+
     /// Execute this runner. All configured steps will be ran.
     /// If any errors occurred during building or while executing,
     /// all executions tops and the error is returned.
     ///
     /// # Panics
     /// If the errors mutex is poisoned.
-    pub async fn execute(self) -> Result<Vec<O>> {
+    pub async fn execute(mut self) -> Result<Vec<O>> {
         if let Some(e) = self.errors.lock().expect("errors mutex poisoned").pop() {
             return Err(e);
+        }
+
+        // The default group's callbacks apply to every child group.
+        // For consistency, we populate those callbacks here so that
+        // every subgroup gets them last.
+        let cbs = self.default.callbacks();
+        for group in &mut self.groups {
+            for cb in cbs {
+                group.add_callback(cb.clone());
+            }
         }
 
         let mut outputs = vec![];

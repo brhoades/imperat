@@ -179,7 +179,7 @@ async fn test_tolerate_failure() {
                     );
                 }
             }
-            gb
+            gb.tolerate_failure()
         })
         .execute()
         .await
@@ -192,4 +192,70 @@ async fn test_tolerate_failure() {
             assert!(!r, "{i} was not false");
         }
     }
+}
+
+// Callbacks should run before and after steps as configured.
+#[tokio::test]
+async fn test_callbacks_run() {
+    static BEFORE_CNT: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+    static AFTER_CNT: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+
+    new_imperative_builder()
+        .new_group(|mut gb| {
+            for i in 0..10 {
+                gb = gb.add_step(&format!("step #{i}"), async || {
+                    println!("step running");
+                });
+            }
+            gb.before_step(|s| {
+                println!("{}: before step", s.name());
+                BEFORE_CNT.fetch_add(1, Ordering::Relaxed);
+            })
+            .after_step(|name, res| {
+                println!("{}: after step w/ res {res:?}", name);
+                AFTER_CNT.fetch_add(1, Ordering::Relaxed);
+            })
+        })
+        .execute()
+        .await
+        .unwrap();
+
+    assert_eq!(BEFORE_CNT.load(Ordering::Relaxed), 10);
+    assert_eq!(AFTER_CNT.load(Ordering::Relaxed), 10);
+}
+
+// Callbacks registered on the top-level builder should apply to
+// groups and top-level steps.
+#[tokio::test]
+async fn test_callbacks_propagate_and_run() {
+    static CNT: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+
+    let mut b = new_imperative_builder()
+        .before_step(|s| {
+            println!("before step {}", s.name());
+            CNT.fetch_add(1, Ordering::Relaxed);
+        })
+        .after_step(|n, _| {
+            println!("after step: {n}");
+            CNT.fetch_add(1, Ordering::Relaxed);
+        });
+
+    for gi in 0..5 {
+        b = b.new_group(|mut gb| {
+            for i in 0..10 {
+                gb = gb.add_step(&format!("step #{gi}:#{i}"), async || {
+                    println!("step running");
+                });
+            }
+            gb
+        });
+    }
+    for i in 0..10 {
+        b = b.add_step(&format!("step ::#{i}"), async || {
+            println!("step running");
+        });
+    }
+
+    b.execute().await.unwrap();
+    assert_eq!(CNT.load(Ordering::Relaxed), (5 * 10 + 10) * 2);
 }
